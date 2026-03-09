@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Mail } from "lucide-react";
+import { BarChart3, TrendingUp, Mail, RefreshCw } from "lucide-react";
+import EmptyState from "@/components/ui/EmptyState";
+import ErrorState from "@/components/ui/ErrorState";
+import { SkeletonStats, Skeleton } from "@/components/ui/Skeleton";
+import Button from "@/components/ui/Button";
 
 interface Campaign {
   id: string;
@@ -22,69 +26,129 @@ export default function AnalyticsView() {
     avgClickRate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchAnalytics = async () => {
+    try {
+      setError(null);
+      const response = await fetch("/api/analytics");
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      setCampaigns(data.campaigns || []);
+      setStats(data.stats || {});
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Error fetching analytics:", error);
+      setError(errorMessage);
+      // Fallback: use empty state
+      setCampaigns([]);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
-  const fetchAnalytics = async () => {
-    try {
-      const response = await fetch("/api/analytics");
-      const data = await response.json();
-      setCampaigns(data.campaigns || []);
-      setStats(data.stats || {});
-    } catch (error) {
-      console.error("Error fetching analytics:", error);
-    } finally {
-      setLoading(false);
-    }
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAnalytics();
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Top Picks Analytics</h1>
-        <p className="text-primary-300">
-          Weekly newsletter performance and subscriber engagement
-        </p>
+    <div className="container-page space-section">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1>Top Picks Analytics</h1>
+          <p className="text-primary-300 mt-2">
+            Weekly newsletter performance and subscriber engagement
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
+          onClick={handleRefresh}
+          isLoading={isRefreshing}
+        >
+          Refresh
+        </Button>
       </div>
+
+      {/* Error State */}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={handleRefresh}
+        />
+      )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          title="Weekly Campaigns"
-          value={stats.weeklyCampaigns}
-          icon={<Mail size={24} />}
-        />
-        <StatCard
-          title="Total Clicks (7d)"
-          value={stats.totalClicks}
-          icon={<TrendingUp size={24} />}
-        />
-        <StatCard
-          title="Avg Open Rate"
-          value={`${(stats.avgOpenRate * 100).toFixed(1)}%`}
-          icon={<BarChart3 size={24} />}
-        />
-        <StatCard
-          title="Avg Click Rate"
-          value={`${(stats.avgClickRate * 100).toFixed(1)}%`}
-          icon={<BarChart3 size={24} />}
-        />
-      </div>
+      {loading ? (
+        <SkeletonStats />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Weekly Campaigns"
+            value={stats.weeklyCampaigns}
+            icon={<Mail size={24} />}
+          />
+          <StatCard
+            title="Total Clicks (7d)"
+            value={stats.totalClicks}
+            icon={<TrendingUp size={24} />}
+          />
+          <StatCard
+            title="Avg Open Rate"
+            value={`${(stats.avgOpenRate * 100).toFixed(1)}%`}
+            icon={<BarChart3 size={24} />}
+          />
+          <StatCard
+            title="Avg Click Rate"
+            value={`${(stats.avgClickRate * 100).toFixed(1)}%`}
+            icon={<BarChart3 size={24} />}
+          />
+        </div>
+      )}
 
       {/* Recent Campaigns */}
-      <div className="bg-primary-800 border border-primary-700 rounded-lg p-6">
-        <h2 className="text-lg font-bold text-white mb-4">Recent Top Picks Campaigns</h2>
+      <div className="bg-primary-800/50 border border-primary-700 rounded-lg p-6">
+        <h2 className="text-lg font-bold text-white mb-6">Recent Top Picks Campaigns</h2>
 
         {loading ? (
-          <div className="text-primary-300 text-center py-8">
-            Loading campaigns...
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="opacity-50">
+            <EmptyState
+              icon={Mail}
+              title="Unable to Load Campaigns"
+              description="There was an error loading your campaigns. Check your connection and try again."
+            />
           </div>
         ) : campaigns.length === 0 ? (
-          <div className="text-primary-300 text-center py-8">
-            No campaigns found
-          </div>
+          <EmptyState
+            icon={Mail}
+            title="No Campaigns Yet"
+            description="You haven't created any newsletter campaigns yet. Create your first campaign to get started."
+            action={{
+              label: "Create Campaign",
+              onClick: () => console.log("Create campaign clicked")
+            }}
+            variant="info"
+          />
         ) : (
           <div className="space-y-4">
             {campaigns.map((campaign) => (
@@ -99,27 +163,27 @@ export default function AnalyticsView() {
                       {new Date(campaign.sentDate).toLocaleDateString()}
                     </p>
                   </div>
-                  <span className="bg-primary-700 text-primary-100 px-2 py-1 rounded text-sm">
+                  <span className="bg-primary-700 text-primary-100 px-3 py-1 rounded-full text-xs font-medium">
                     {campaign.status}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-primary-900 rounded p-3">
-                    <p className="text-primary-400 text-xs">Open Rate</p>
-                    <p className="text-white text-lg font-semibold">
+                    <p className="text-label">Open Rate</p>
+                    <p className="text-white text-lg font-semibold mt-1">
                       {(campaign.openRate * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-primary-900 rounded p-3">
-                    <p className="text-primary-400 text-xs">Click Rate</p>
-                    <p className="text-white text-lg font-semibold">
+                    <p className="text-label">Click Rate</p>
+                    <p className="text-white text-lg font-semibold mt-1">
                       {(campaign.clickRate * 100).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-primary-900 rounded p-3">
-                    <p className="text-primary-400 text-xs">Total Clicks</p>
-                    <p className="text-white text-lg font-semibold">
+                    <p className="text-label">Total Clicks</p>
+                    <p className="text-white text-lg font-semibold mt-1">
                       {campaign.clicks}
                     </p>
                   </div>
@@ -141,10 +205,10 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon }: StatCardProps) {
   return (
-    <div className="bg-primary-800 border border-primary-700 rounded-lg p-6">
+    <div className="bg-primary-800/50 border border-primary-700 rounded-lg p-6 hover:border-primary-600 transition">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-primary-300 text-sm font-medium">{title}</p>
+          <p className="text-label">{title}</p>
           <p className="text-3xl font-bold text-white mt-2">{value}</p>
         </div>
         <div className="text-primary-600">{icon}</div>

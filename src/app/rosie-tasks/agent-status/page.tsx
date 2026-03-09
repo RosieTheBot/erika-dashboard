@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, Clock, CheckCircle2, Activity, RefreshCw } from 'lucide-react'
+import { Clock, CheckCircle2, Activity, RefreshCw } from 'lucide-react'
+import ErrorState from '@/components/ui/ErrorState'
+import { SkeletonCard, SkeletonStats } from '@/components/ui/Skeleton'
+import Button from '@/components/ui/Button'
 
 interface AgentStatus {
   id: string
@@ -76,22 +79,34 @@ const mockAgentData: AgentStatus[] = [
 export default function AgentStatusPage() {
   const [agents, setAgents] = useState<AgentStatus[]>(mockAgentData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(new Date())
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const fetchAgentStatus = async () => {
     try {
+      setError(null)
       const response = await fetch('/api/rosie-tasks/agent-status')
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
       const data = await response.json()
       if (data.agents && Array.isArray(data.agents)) {
         setAgents(data.agents)
+      } else {
+        // Fall back to mock data if API doesn't return agents
+        console.warn('API did not return agents array, using mock data')
       }
       setLastUpdated(new Date())
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch agent status'
       console.error('Failed to fetch agent status:', error)
+      setError(errorMessage)
       // Keep existing data on error
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -154,8 +169,13 @@ export default function AgentStatusPage() {
   const totalTasksCompleted = agents.reduce((sum, a) => sum + a.tasks_completed, 0)
   const totalErrors = agents.reduce((sum, a) => sum + a.error_count, 0)
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchAgentStatus()
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="container-page space-section">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-primary-800/50 border border-primary-700 rounded-lg p-4">
         <div>
@@ -164,44 +184,56 @@ export default function AgentStatusPage() {
             Last updated: {lastUpdated.toLocaleTimeString()}
           </p>
         </div>
-        <label className="flex items-center gap-3 text-white">
-          <input
-            type="checkbox"
-            checked={autoRefresh}
-            onChange={(e) => setAutoRefresh(e.target.checked)}
-            className="w-4 h-4 accent-primary-500"
-          />
-          <span className="text-sm">Auto-refresh every 30s</span>
-        </label>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw size={16} />}
+            onClick={handleRefresh}
+            isLoading={isRefreshing}
+          >
+            Refresh
+          </Button>
+          <label className="flex items-center gap-3 text-white whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="w-4 h-4 accent-primary-500 cursor-pointer"
+            />
+            <span className="text-sm">Auto-refresh</span>
+          </label>
+        </div>
       </div>
 
+      {/* Error State */}
+      {error && !loading && (
+        <ErrorState
+          message={error}
+          onRetry={handleRefresh}
+        />
+      )}
+
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-          <p className="text-2xl font-bold text-green-400">{onlineCount}/5</p>
-          <p className="text-xs text-primary-300 mt-1">Active Agents</p>
+      {loading ? (
+        <SkeletonStats />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard value={onlineCount} max={5} title="Active Agents" variant="success" />
+          <StatCard value={totalTasksCompleted} title="Total Tasks Done" variant="info" />
+          <StatCard value={totalErrors} title="Errors" variant={totalErrors > 0 ? 'danger' : 'success'} />
+          <StatCard value="98%" title="Uptime" variant="success" />
         </div>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-          <p className="text-2xl font-bold text-blue-400">{totalTasksCompleted}</p>
-          <p className="text-xs text-primary-300 mt-1">Total Tasks Done</p>
-        </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-          <p className="text-2xl font-bold text-red-400">{totalErrors}</p>
-          <p className="text-xs text-primary-300 mt-1">Errors</p>
-        </div>
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-          <p className="text-2xl font-bold text-yellow-400">98%</p>
-          <p className="text-xs text-primary-300 mt-1">Uptime</p>
-        </div>
-      </div>
+      )}
 
       {/* Agent Status Cards */}
       <div className="space-y-4">
-        {loading && agents.length === 0 ? (
-          <div className="flex items-center gap-2 text-primary-300">
-            <Loader size={20} className="animate-spin" />
-            Loading agent status...
-          </div>
+        {loading ? (
+          <>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </>
         ) : (
           agents.map((agent) => (
             <div
@@ -312,6 +344,38 @@ export default function AgentStatusPage() {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+interface StatCardProps {
+  value: string | number
+  max?: number
+  title: string
+  variant?: 'success' | 'danger' | 'info' | 'warning'
+}
+
+function StatCard({ value, max, title, variant = 'info' }: StatCardProps) {
+  const variants = {
+    success: 'bg-green-500/10 border-green-500/30',
+    danger: 'bg-red-500/10 border-red-500/30',
+    info: 'bg-blue-500/10 border-blue-500/30',
+    warning: 'bg-yellow-500/10 border-yellow-500/30'
+  }
+
+  const textVariants = {
+    success: 'text-green-400',
+    danger: 'text-red-400',
+    info: 'text-blue-400',
+    warning: 'text-yellow-400'
+  }
+
+  return (
+    <div className={`border rounded-lg p-4 ${variants[variant]}`}>
+      <p className={`text-2xl font-bold ${textVariants[variant]}`}>
+        {value}{max ? `/${max}` : ''}
+      </p>
+      <p className="text-xs text-primary-300 mt-1">{title}</p>
     </div>
   )
 }
