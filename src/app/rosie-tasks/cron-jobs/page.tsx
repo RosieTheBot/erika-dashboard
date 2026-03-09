@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader, Clock } from 'lucide-react'
+import { AlertCircle, Clock, RefreshCw } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { SkeletonTable } from '@/components/ui/Skeleton'
+import Button from '@/components/ui/Button'
 
 interface CronJob {
   id: number
@@ -29,6 +32,8 @@ function formatCountdown(seconds: number | null): string {
 export default function CronJobsPage() {
   const [jobs, setJobs] = useState<CronJob[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [countdowns, setCountdowns] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -58,13 +63,18 @@ export default function CronJobsPage() {
 
   const fetchJobs = async () => {
     try {
+      setError(null)
       const response = await fetch('/api/cron-jobs')
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
       const data = await response.json()
       setJobs(data.jobs || [])
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch cron jobs'
       console.error('Error fetching cron jobs:', error)
+      setError(errorMessage)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -90,34 +100,48 @@ export default function CronJobsPage() {
   }
 
   const handleRefresh = async () => {
-    setLoading(true)
+    setIsRefreshing(true)
     await fetchJobs()
   }
 
   return (
-    <div>
-      {/* Controls */}
-      <div className="mb-6">
-        <button
+    <div className="container-page space-section">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1>Cron Jobs</h1>
+          <p className="text-primary-300 mt-2">Scheduled automated tasks and maintenance jobs</p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
           onClick={handleRefresh}
-          disabled={loading}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition disabled:opacity-50"
+          isLoading={isRefreshing}
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+          Refresh
+        </Button>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-300 text-sm">{error}</p>
+        </div>
+      )}
+
       {/* Jobs Table */}
-      {loading && jobs.length === 0 ? (
-        <div className="flex items-center gap-2 text-primary-300">
-          <Loader size={20} className="animate-spin" />
-          Loading cron jobs...
-        </div>
+      {loading ? (
+        <SkeletonTable />
       ) : jobs.length === 0 ? (
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
-          <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-          <p className="text-primary-300">No cron jobs found</p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title={error ? "Unable to Load Cron Jobs" : "No Cron Jobs"}
+          description={error
+            ? "There was an error loading your cron jobs. Check your connection and try again."
+            : "No scheduled cron jobs found. Scheduled tasks will appear here."}
+          variant={error ? "warning" : "info"}
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">

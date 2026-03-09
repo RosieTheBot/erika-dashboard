@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { SkeletonTable } from '@/components/ui/Skeleton'
+import Button from '@/components/ui/Button'
 
 interface ProjectHistory {
   id: number
@@ -18,6 +21,8 @@ interface ProjectHistory {
 export default function CurrentProjectsPage() {
   const [projects, setProjects] = useState<ProjectHistory[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'success' | 'failed' | 'running' | 'complete'>('all')
 
@@ -31,13 +36,18 @@ export default function CurrentProjectsPage() {
 
   const fetchProjects = async () => {
     try {
+      setError(null)
       const response = await fetch('/api/projects')
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
       const data = await response.json()
       setProjects(data.projects || [])
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch projects'
       console.error('Error fetching projects:', error)
+      setError(errorMessage)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -69,50 +79,65 @@ export default function CurrentProjectsPage() {
     : activeProjects.filter(p => p.status === filter)
 
   const handleRefresh = async () => {
-    setLoading(true)
+    setIsRefreshing(true)
     await fetchProjects()
   }
 
   return (
-    <div>
-      {/* Filter and Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex gap-2 flex-wrap">
-          {(['all', 'success', 'failed', 'running', 'complete'] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-3 py-1 rounded-lg font-medium transition text-sm ${
-                filter === status
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-primary-800/50 text-primary-300 hover:bg-primary-800'
-              }`}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
+    <div className="container-page space-section">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1>Current Projects</h1>
+          <p className="text-primary-300 mt-2">Active projects and manual tasks (excluding scheduled cron jobs)</p>
         </div>
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
           onClick={handleRefresh}
-          disabled={loading}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition disabled:opacity-50 ml-auto"
+          isLoading={isRefreshing}
         >
-          {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+          Refresh
+        </Button>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-300 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Filter and Controls */}
+      <div className="flex gap-2 flex-wrap">
+        {(['all', 'success', 'failed', 'running', 'complete'] as const).map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-3 py-1 rounded-lg font-medium transition text-sm ${
+              filter === status
+                ? 'bg-primary-600 text-white'
+                : 'bg-primary-800/50 text-primary-300 hover:bg-primary-800'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
       </div>
 
       {/* Projects List */}
-      {loading && projects.length === 0 ? (
-        <div className="flex items-center gap-2 text-primary-300">
-          <Loader size={20} className="animate-spin" />
-          Loading projects...
-        </div>
+      {loading ? (
+        <SkeletonTable />
       ) : filteredProjects.length === 0 ? (
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
-          <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-          <p className="text-primary-300">No active projects found</p>
-          <p className="text-xs text-primary-400 mt-2">Scheduled cron jobs are shown in the Cron Jobs section</p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title={error ? "Unable to Load Projects" : "No Active Projects"}
+          description={error 
+            ? "There was an error loading your projects. Check your connection and try again."
+            : "No active projects found. Scheduled cron jobs are shown in the Cron Jobs section."}
+          variant={error ? "warning" : "info"}
+        />
       ) : (
         <div className="space-y-3">
           {filteredProjects.map((project) => (

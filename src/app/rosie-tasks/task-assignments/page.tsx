@@ -1,7 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, CheckCircle2, Clock, AlertTriangle, Filter, RefreshCw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock, AlertTriangle, Filter, RefreshCw } from 'lucide-react'
+import ErrorState from '@/components/ui/ErrorState'
+import EmptyState from '@/components/ui/EmptyState'
+import { SkeletonTable } from '@/components/ui/Skeleton'
+import Button from '@/components/ui/Button'
 
 interface TaskAssignment {
   id: string
@@ -119,6 +123,8 @@ const mockTaskData: TaskAssignment[] = [
 export default function TaskAssignmentsPage() {
   const [tasks, setTasks] = useState<TaskAssignment[]>(mockTaskData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [filterAgent, setFilterAgent] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPriority, setFilterPriority] = useState<string>('all')
@@ -127,17 +133,26 @@ export default function TaskAssignmentsPage() {
 
   const fetchTasks = async () => {
     try {
+      setError(null)
       const response = await fetch('/api/rosie-tasks/task-assignments')
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
       const data = await response.json()
       if (data.tasks && Array.isArray(data.tasks)) {
         setTasks(data.tasks)
+      } else {
+        console.warn('API did not return tasks array, using mock data')
       }
       setLastUpdated(new Date())
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch tasks'
       console.error('Failed to fetch tasks:', error)
+      setError(errorMessage)
       // Keep existing data on error
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -216,10 +231,49 @@ export default function TaskAssignmentsPage() {
     blocked: tasks.filter(t => t.status === 'blocked').length
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchTasks()
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="container-page space-section">
+      {/* Header with Refresh */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1>Task Assignments</h1>
+          <p className="text-primary-300 mt-2">
+            Manage and track agent task assignments. Last updated: {lastUpdated.toLocaleTimeString()}
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
+          onClick={handleRefresh}
+          isLoading={isRefreshing}
+        >
+          Refresh
+        </Button>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={handleRefresh}
+        />
+      )}
+
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-primary-800/50 border border-primary-700 rounded-lg p-4 h-20 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="bg-primary-800/50 border border-primary-700 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-white">{stats.total}</p>
           <p className="text-xs text-primary-300 mt-1">Total Tasks</p>
@@ -240,7 +294,8 @@ export default function TaskAssignmentsPage() {
           <p className="text-2xl font-bold text-red-400">{stats.blocked}</p>
           <p className="text-xs text-primary-300 mt-1">Blocked</p>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-primary-800/50 border border-primary-700 rounded-lg p-4">
@@ -301,16 +356,27 @@ export default function TaskAssignmentsPage() {
 
       {/* Tasks List */}
       <div className="space-y-3">
-        {loading && filteredTasks.length === 0 ? (
-          <div className="flex items-center gap-2 text-primary-300">
-            <Loader size={20} className="animate-spin" />
-            Loading tasks...
-          </div>
+        {loading ? (
+          <SkeletonTable />
+        ) : error && filteredTasks.length === 0 ? (
+          <EmptyState
+            icon={AlertCircle}
+            title="Unable to Load Tasks"
+            description="There was an error loading your tasks. Check your connection and try again."
+            variant="warning"
+          />
         ) : filteredTasks.length === 0 ? (
-          <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
-            <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-            <p className="text-primary-300">No tasks found with current filters</p>
-          </div>
+          <EmptyState
+            icon={AlertCircle}
+            title="No Tasks Found"
+            description={filterAgent === 'all' && filterStatus === 'all' && filterPriority === 'all' 
+              ? "You don't have any tasks yet. Create your first task to get started."
+              : "No tasks match your current filter. Try adjusting your filters."}
+            action={filterAgent !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' 
+              ? { label: 'Clear Filters', onClick: () => { setFilterAgent('all'); setFilterStatus('all'); setFilterPriority('all'); } }
+              : undefined}
+            variant="info"
+          />
         ) : (
           filteredTasks.map((task) => (
             <div
@@ -388,13 +454,9 @@ export default function TaskAssignmentsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-2 border-t border-primary-700">
-                    <button className="px-3 py-1 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded transition">
-                      View Details
-                    </button>
+                    <Button size="sm" variant="primary">View Details</Button>
                     {task.status !== 'complete' && (
-                      <button className="px-3 py-1 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded transition">
-                        Update Status
-                      </button>
+                      <Button size="sm" variant="secondary">Update Status</Button>
                     )}
                   </div>
                 </div>

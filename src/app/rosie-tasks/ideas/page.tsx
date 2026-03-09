@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertCircle, Loader, Trash2, Check, Plus } from 'lucide-react'
+import { AlertCircle, Trash2, Check, Plus, RefreshCw } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
 
 interface Idea {
   id: string
@@ -15,6 +18,9 @@ interface Idea {
 export default function IdeasPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [filter, setFilter] = useState<'new' | 'completed' | 'all'>('new')
   const [showForm, setShowForm] = useState(false)
   const [newIdea, setNewIdea] = useState({ title: '', description: '', category: 'general' })
@@ -25,31 +31,41 @@ export default function IdeasPage() {
 
   const fetchIdeas = async () => {
     try {
+      setError(null)
       const response = await fetch('/api/ideas')
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
       const data = await response.json()
       setIdeas(data.ideas || [])
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch ideas'
       console.error('Error fetching ideas:', error)
+      setError(errorMessage)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
   }
 
   const handleAddIdea = async () => {
     if (!newIdea.title.trim()) return
 
+    setIsSaving(true)
     try {
       const response = await fetch('/api/ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newIdea)
       })
+      if (!response.ok) throw new Error('Failed to add idea')
       const data = await response.json()
       setIdeas([data.idea, ...ideas])
       setNewIdea({ title: '', description: '', category: 'general' })
       setShowForm(false)
     } catch (error) {
       console.error('Error adding idea:', error)
+      setError(error instanceof Error ? error.message : 'Failed to add idea')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -98,60 +114,96 @@ export default function IdeasPage() {
     ? ideas 
     : ideas.filter(i => i.status === filter)
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await fetchIdeas()
+  }
+
   return (
-    <div>
+    <div className="container-page space-section">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1>Ideas & Suggestions</h1>
+          <p className="text-primary-300 mt-2">Brainstorm, track, and convert ideas into projects</p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
+          onClick={handleRefresh}
+          isLoading={isRefreshing}
+        >
+          Refresh
+        </Button>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-300 text-sm">{error}</p>
+        </div>
+      )}
+
       {/* Add Idea Form */}
-      <div className="mb-6">
+      <div>
         {showForm ? (
           <div className="bg-primary-800/50 border border-primary-700 rounded-lg p-4 space-y-3">
-            <input
-              type="text"
-              placeholder="Idea title"
+            <Input
+              label="Idea Title"
+              placeholder="What's your idea?"
               value={newIdea.title}
               onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
-              className="w-full bg-primary-700 border border-primary-600 rounded px-3 py-2 text-white placeholder-primary-400 focus:outline-none focus:border-primary-500"
+              required
             />
-            <textarea
-              placeholder="Description (optional)"
-              value={newIdea.description}
-              onChange={(e) => setNewIdea({ ...newIdea, description: e.target.value })}
-              className="w-full bg-primary-700 border border-primary-600 rounded px-3 py-2 text-white placeholder-primary-400 focus:outline-none focus:border-primary-500 resize-none"
-              rows={2}
-            />
-            <select
-              value={newIdea.category}
-              onChange={(e) => setNewIdea({ ...newIdea, category: e.target.value })}
-              className="w-full bg-primary-700 border border-primary-600 rounded px-3 py-2 text-white focus:outline-none focus:border-primary-500"
-            >
-              <option value="general">General</option>
-              <option value="automation">Automation</option>
-              <option value="notifications">Notifications</option>
-              <option value="features">Features</option>
-              <option value="performance">Performance</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Description (optional)</label>
+              <textarea
+                placeholder="Add more details..."
+                value={newIdea.description}
+                onChange={(e) => setNewIdea({ ...newIdea, description: e.target.value })}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2 text-white placeholder-primary-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 resize-none transition"
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Category</label>
+              <select
+                value={newIdea.category}
+                onChange={(e) => setNewIdea({ ...newIdea, category: e.target.value })}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition"
+              >
+                <option value="general">General</option>
+                <option value="automation">Automation</option>
+                <option value="notifications">Notifications</option>
+                <option value="features">Features</option>
+                <option value="performance">Performance</option>
+              </select>
+            </div>
             <div className="flex gap-2">
-              <button
+              <Button
                 onClick={handleAddIdea}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition"
+                isLoading={isSaving}
+                variant="primary"
               >
                 Add Idea
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2 bg-primary-800 hover:bg-primary-700 text-white rounded-lg font-medium transition"
+                variant="secondary"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
-          <button
+          <Button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition"
+            variant="primary"
+            icon={<Plus size={16} />}
           >
-            <Plus size={16} />
             New Idea
-          </button>
+          </Button>
         )}
       </div>
 
@@ -174,15 +226,22 @@ export default function IdeasPage() {
 
       {/* Ideas Grid */}
       {loading ? (
-        <div className="flex items-center gap-2 text-primary-300">
-          <Loader size={20} className="animate-spin" />
-          Loading ideas...
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-primary-800/50 border border-primary-700 rounded-lg p-4 h-40 animate-pulse" />
+          ))}
         </div>
       ) : filteredIdeas.length === 0 ? (
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
-          <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-          <p className="text-primary-300">No ideas found</p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title={error ? "Unable to Load Ideas" : filter === 'new' ? "No New Ideas" : "No Ideas Found"}
+          description={error
+            ? "There was an error loading your ideas. Check your connection and try again."
+            : filter === 'new' 
+            ? "You haven't created any ideas yet. Click 'New Idea' to get started."
+            : "No ideas match your current filter."}
+          variant={error ? "warning" : "info"}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredIdeas.map((idea) => (
