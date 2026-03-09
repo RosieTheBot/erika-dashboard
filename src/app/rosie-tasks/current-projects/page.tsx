@@ -61,9 +61,12 @@ export default function CurrentProjectsPage() {
     manual: 'text-gray-400'
   }
 
+  // Filter out cron jobs - only show active projects (manual and memory items)
+  const activeProjects = projects.filter(p => p.project_type !== 'cron_job')
+  
   const filteredProjects = filter === 'all' 
-    ? projects 
-    : projects.filter(p => p.status === filter)
+    ? activeProjects
+    : activeProjects.filter(p => p.status === filter)
 
   const handleRefresh = async () => {
     setLoading(true)
@@ -107,7 +110,8 @@ export default function CurrentProjectsPage() {
       ) : filteredProjects.length === 0 ? (
         <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
           <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-          <p className="text-primary-300">No projects found</p>
+          <p className="text-primary-300">No active projects found</p>
+          <p className="text-xs text-primary-400 mt-2">Scheduled cron jobs are shown in the Cron Jobs section</p>
         </div>
       ) : (
         <div className="space-y-3">
