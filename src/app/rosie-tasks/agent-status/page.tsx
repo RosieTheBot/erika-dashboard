@@ -1,18 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, Clock, CheckCircle2, Activity } from 'lucide-react'
+import { Loader, AlertCircle, Clock, CheckCircle2, Activity, RefreshCw } from 'lucide-react'
 
 interface AgentStatus {
   id: string
   name: string
   role: string
   status: 'online' | 'offline' | 'idle' | 'busy'
-  lastTaskExecuted: string
-  currentActivity: string
-  lastActiveAt: string
-  tasksCompleted: number
-  errorCount: number
+  last_task_executed: string
+  current_activity: string
+  last_active_at: string
+  tasks_completed: number
+  error_count: number
 }
 
 const mockAgentData: AgentStatus[] = [
@@ -21,55 +21,55 @@ const mockAgentData: AgentStatus[] = [
     name: 'Rosie',
     role: 'Orchestrator',
     status: 'online',
-    lastTaskExecuted: 'Distributed tasks to 4 agents',
-    currentActivity: 'Monitoring task status and coordinating workflows',
-    lastActiveAt: new Date(Date.now() - 1000).toISOString(),
-    tasksCompleted: 1247,
-    errorCount: 3
+    last_task_executed: 'Distributed tasks to 4 agents',
+    current_activity: 'Monitoring task status and coordinating workflows',
+    last_active_at: new Date(Date.now() - 1000).toISOString(),
+    tasks_completed: 1247,
+    error_count: 3
   },
   {
     id: 'stu',
     name: 'Stu',
     role: 'STR Analyst',
     status: 'busy',
-    lastTaskExecuted: 'AirDNA market analysis for Austin properties',
-    currentActivity: 'Processing revenue data for 12 properties',
-    lastActiveAt: new Date(Date.now() - 5000).toISOString(),
-    tasksCompleted: 342,
-    errorCount: 1
+    last_task_executed: 'AirDNA market analysis for Austin properties',
+    current_activity: 'Processing revenue data for 12 properties',
+    last_active_at: new Date(Date.now() - 5000).toISOString(),
+    tasks_completed: 342,
+    error_count: 1
   },
   {
     id: 'mel',
     name: 'Mel',
     role: 'Marketing Manager',
     status: 'online',
-    lastTaskExecuted: 'Generated buyer engagement email campaign',
-    currentActivity: 'Analyzing campaign performance metrics',
-    lastActiveAt: new Date(Date.now() - 30000).toISOString(),
-    tasksCompleted: 189,
-    errorCount: 0
+    last_task_executed: 'Generated buyer engagement email campaign',
+    current_activity: 'Analyzing campaign performance metrics',
+    last_active_at: new Date(Date.now() - 30000).toISOString(),
+    tasks_completed: 189,
+    error_count: 0
   },
   {
     id: 'aly',
     name: 'Aly',
     role: 'Admin Assistant',
     status: 'idle',
-    lastTaskExecuted: 'Scheduled daily sync tasks',
-    currentActivity: 'Waiting for new assignments',
-    lastActiveAt: new Date(Date.now() - 180000).toISOString(),
-    tasksCompleted: 523,
-    errorCount: 2
+    last_task_executed: 'Scheduled daily sync tasks',
+    current_activity: 'Waiting for new assignments',
+    last_active_at: new Date(Date.now() - 180000).toISOString(),
+    tasks_completed: 523,
+    error_count: 2
   },
   {
     id: 'cody',
     name: 'Cody',
     role: 'Coding Agent',
     status: 'busy',
-    lastTaskExecuted: 'Deployed dashboard updates to Vercel',
-    currentActivity: 'Building new API endpoints for data sync',
-    lastActiveAt: new Date(Date.now() - 3000).toISOString(),
-    tasksCompleted: 267,
-    errorCount: 0
+    last_task_executed: 'Deployed dashboard updates to Vercel',
+    current_activity: 'Building new API endpoints for data sync',
+    last_active_at: new Date(Date.now() - 3000).toISOString(),
+    tasks_completed: 267,
+    error_count: 0
   }
 ]
 
@@ -79,17 +79,32 @@ export default function AgentStatusPage() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [lastUpdated, setLastUpdated] = useState(new Date())
 
+  const fetchAgentStatus = async () => {
+    try {
+      const response = await fetch('/api/rosie-tasks/agent-status')
+      const data = await response.json()
+      if (data.agents && Array.isArray(data.agents)) {
+        setAgents(data.agents)
+      }
+      setLastUpdated(new Date())
+    } catch (error) {
+      console.error('Failed to fetch agent status:', error)
+      // Keep existing data on error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     // Initial load
-    setLoading(false)
+    fetchAgentStatus()
     
-    // Auto-refresh every 30 seconds if enabled
+    // Auto-refresh every 5 minutes if enabled (300 seconds for production)
     if (!autoRefresh) return
     
     const interval = setInterval(() => {
-      // In production, this would fetch from an API endpoint
-      setLastUpdated(new Date())
-    }, 30 * 1000)
+      fetchAgentStatus()
+    }, 5 * 60 * 1000)
     
     return () => clearInterval(interval)
   }, [autoRefresh])
@@ -136,8 +151,8 @@ export default function AgentStatusPage() {
   }
 
   const onlineCount = agents.filter(a => a.status === 'online' || a.status === 'busy').length
-  const totalTasksCompleted = agents.reduce((sum, a) => sum + a.tasksCompleted, 0)
-  const totalErrors = agents.reduce((sum, a) => sum + a.errorCount, 0)
+  const totalTasksCompleted = agents.reduce((sum, a) => sum + a.tasks_completed, 0)
+  const totalErrors = agents.reduce((sum, a) => sum + a.error_count, 0)
 
   return (
     <div className="space-y-6">
@@ -223,7 +238,7 @@ export default function AgentStatusPage() {
                 {/* Current Activity */}
                 <div>
                   <p className="text-xs font-semibold text-primary-400 mb-1">Current Activity</p>
-                  <p className="text-white">{agent.currentActivity}</p>
+                  <p className="text-white">{agent.current_activity}</p>
                 </div>
 
                 {/* Last Task */}
@@ -232,10 +247,10 @@ export default function AgentStatusPage() {
                   <div className="flex items-start gap-2">
                     <CheckCircle2 size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-white">{agent.lastTaskExecuted}</p>
+                      <p className="text-white">{agent.last_task_executed}</p>
                       <p className="text-xs text-primary-400 mt-0.5">
                         <Clock size={12} className="inline mr-1" />
-                        {formatTimeAgo(agent.lastActiveAt)}
+                        {formatTimeAgo(agent.last_active_at)}
                       </p>
                     </div>
                   </div>
@@ -245,18 +260,18 @@ export default function AgentStatusPage() {
                 <div className="grid grid-cols-3 gap-4 pt-2 border-t border-primary-700">
                   <div>
                     <p className="text-xs text-primary-400 mb-1">Tasks Completed</p>
-                    <p className="text-lg font-bold text-white">{agent.tasksCompleted}</p>
+                    <p className="text-lg font-bold text-white">{agent.tasks_completed}</p>
                   </div>
                   <div>
                     <p className="text-xs text-primary-400 mb-1">Errors</p>
-                    <p className={`text-lg font-bold ${agent.errorCount > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      {agent.errorCount}
+                    <p className={`text-lg font-bold ${agent.error_count > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      {agent.error_count}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-primary-400 mb-1">Success Rate</p>
                     <p className="text-lg font-bold text-green-400">
-                      {Math.round((agent.tasksCompleted / (agent.tasksCompleted + agent.errorCount)) * 100)}%
+                      {Math.round((agent.tasks_completed / (agent.tasks_completed + agent.error_count)) * 100)}%
                     </p>
                   </div>
                 </div>

@@ -1,117 +1,117 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader, AlertCircle, CheckCircle2, Clock, AlertTriangle, Filter } from 'lucide-react'
+import { Loader, AlertCircle, CheckCircle2, Clock, AlertTriangle, Filter, RefreshCw } from 'lucide-react'
 
 interface TaskAssignment {
   id: string
-  taskName: string
-  assignedAgent: string
+  task_name: string
+  assigned_agent: string
   status: 'in_progress' | 'blocked' | 'complete' | 'pending'
   priority: 'low' | 'medium' | 'high' | 'critical'
-  createdAt: string
-  completedAt?: string
-  estimatedTime: string
-  actualTime?: string
+  created_at: string
+  completed_at?: string
+  estimated_time: string
+  actual_time?: string
   description: string
-  blockedReason?: string
+  blocked_reason?: string
 }
 
 const mockTaskData: TaskAssignment[] = [
   {
     id: 'task-001',
-    taskName: 'AirDNA Market Analysis - Austin STR Portfolio',
-    assignedAgent: 'Stu',
+    task_name: 'AirDNA Market Analysis - Austin STR Portfolio',
+    assigned_agent: 'Stu',
     status: 'in_progress',
     priority: 'high',
-    createdAt: '2026-03-08T10:30:00Z',
-    estimatedTime: '2h',
+    created_at: '2026-03-08T10:30:00Z',
+    estimated_time: '2h',
     description: 'Analyze 12 properties in Austin market for revenue potential and seasonal trends',
-    blockedReason: undefined
+    blocked_reason: undefined
   },
   {
     id: 'task-002',
-    taskName: 'Deploy Dashboard Updates to Vercel',
-    assignedAgent: 'Cody',
+    task_name: 'Deploy Dashboard Updates to Vercel',
+    assigned_agent: 'Cody',
     status: 'in_progress',
     priority: 'high',
-    createdAt: '2026-03-08T09:15:00Z',
-    estimatedTime: '45m',
+    created_at: '2026-03-08T09:15:00Z',
+    estimated_time: '45m',
     description: 'Deploy new org-chart and agent-status pages to production'
   },
   {
     id: 'task-003',
-    taskName: 'Generate Buyer Campaign Email',
-    assignedAgent: 'Mel',
+    task_name: 'Generate Buyer Campaign Email',
+    assigned_agent: 'Mel',
     status: 'complete',
     priority: 'medium',
-    createdAt: '2026-03-08T08:00:00Z',
-    completedAt: '2026-03-08T11:30:00Z',
-    estimatedTime: '1.5h',
-    actualTime: '1h 28m',
+    created_at: '2026-03-08T08:00:00Z',
+    completed_at: '2026-03-08T11:30:00Z',
+    estimated_time: '1.5h',
+    actual_time: '1h 28m',
     description: 'Create personalized email campaign for active buyers'
   },
   {
     id: 'task-004',
-    taskName: 'Update Task Tracking Database Schema',
-    assignedAgent: 'Cody',
+    task_name: 'Update Task Tracking Database Schema',
+    assigned_agent: 'Cody',
     status: 'blocked',
     priority: 'critical',
-    createdAt: '2026-03-08T07:00:00Z',
-    estimatedTime: '3h',
+    created_at: '2026-03-08T07:00:00Z',
+    estimated_time: '3h',
     description: 'Add agent_sessions and task_assignments tables to Supabase',
-    blockedReason: 'Waiting for database access confirmation'
+    blocked_reason: 'Waiting for database access confirmation'
   },
   {
     id: 'task-005',
-    taskName: 'Schedule Weekly Team Sync',
-    assignedAgent: 'Aly',
+    task_name: 'Schedule Weekly Team Sync',
+    assigned_agent: 'Aly',
     status: 'complete',
     priority: 'low',
-    createdAt: '2026-03-07T14:00:00Z',
-    completedAt: '2026-03-07T14:30:00Z',
-    estimatedTime: '30m',
-    actualTime: '25m',
+    created_at: '2026-03-07T14:00:00Z',
+    completed_at: '2026-03-07T14:30:00Z',
+    estimated_time: '30m',
+    actual_time: '25m',
     description: 'Coordinate weekly meeting between all agents'
   },
   {
     id: 'task-006',
-    taskName: 'Analyze Market Trends for Q2',
-    assignedAgent: 'Stu',
+    task_name: 'Analyze Market Trends for Q2',
+    assigned_agent: 'Stu',
     status: 'pending',
     priority: 'medium',
-    createdAt: '2026-03-08T12:00:00Z',
-    estimatedTime: '4h',
+    created_at: '2026-03-08T12:00:00Z',
+    estimated_time: '4h',
     description: 'Review market data and prepare quarterly analysis report'
   },
   {
     id: 'task-007',
-    taskName: 'Monitor API Performance Metrics',
-    assignedAgent: 'Cody',
+    task_name: 'Monitor API Performance Metrics',
+    assigned_agent: 'Cody',
     status: 'in_progress',
     priority: 'medium',
-    createdAt: '2026-03-08T06:00:00Z',
-    estimatedTime: '1h',
+    created_at: '2026-03-08T06:00:00Z',
+    estimated_time: '1h',
     description: 'Check API response times and error rates in production'
   },
   {
     id: 'task-008',
-    taskName: 'Process Seller Onboarding Checklist',
-    assignedAgent: 'Aly',
+    task_name: 'Process Seller Onboarding Checklist',
+    assigned_agent: 'Aly',
     status: 'pending',
     priority: 'high',
-    createdAt: '2026-03-08T11:45:00Z',
-    estimatedTime: '2h',
+    created_at: '2026-03-08T11:45:00Z',
+    estimated_time: '2h',
     description: 'Complete onboarding documentation for new sellers'
   },
   {
     id: 'task-009',
-    taskName: 'Update Social Media Strategy',
-    assignedAgent: 'Mel',
+    task_name: 'Update Social Media Strategy',
+    assigned_agent: 'Mel',
     status: 'pending',
     priority: 'medium',
-    createdAt: '2026-03-08T13:00:00Z',
-    estimatedTime: '1.5h',
+    created_at: '2026-03-08T13:00:00Z',
+    estimated_time: '1.5h',
     description: 'Review and update content calendar for next month'
   }
 ]
@@ -123,10 +123,34 @@ export default function TaskAssignmentsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPriority, setFilterPriority] = useState<string>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState(new Date())
+
+  const fetchTasks = async () => {
+    try {
+      const response = await fetch('/api/rosie-tasks/task-assignments')
+      const data = await response.json()
+      if (data.tasks && Array.isArray(data.tasks)) {
+        setTasks(data.tasks)
+      }
+      setLastUpdated(new Date())
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error)
+      // Keep existing data on error
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Simulate loading
-    setLoading(false)
+    // Initial load
+    fetchTasks()
+    
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(() => {
+      fetchTasks()
+    }, 5 * 60 * 1000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const getStatusColor = (status: string) => {
@@ -174,12 +198,12 @@ export default function TaskAssignmentsPage() {
     }
   }
 
-  const agents = ['all', ...new Set(mockTaskData.map(t => t.assignedAgent))]
+  const agents = ['all', ...new Set(tasks.map(t => t.assigned_agent))]
   const statuses = ['all', 'in_progress', 'pending', 'complete', 'blocked']
   const priorities = ['all', 'critical', 'high', 'medium', 'low']
 
   const filteredTasks = tasks.filter(task =>
-    (filterAgent === 'all' || task.assignedAgent === filterAgent) &&
+    (filterAgent === 'all' || task.assigned_agent === filterAgent) &&
     (filterStatus === 'all' || task.status === filterStatus) &&
     (filterPriority === 'all' || task.priority === filterPriority)
   )
@@ -301,9 +325,9 @@ export default function TaskAssignmentsPage() {
                 <div className="flex items-center gap-4 flex-1">
                   {getStatusIcon(task.status)}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold truncate">{task.taskName}</h3>
+                    <h3 className="text-white font-semibold truncate">{task.task_name}</h3>
                     <p className="text-sm text-primary-400">
-                      Assigned to: <span className="font-medium text-white">{task.assignedAgent}</span>
+                      Assigned to: <span className="font-medium text-white">{task.assigned_agent}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -331,34 +355,34 @@ export default function TaskAssignmentsPage() {
                     <div>
                       <p className="text-xs text-primary-400 mb-1">Created</p>
                       <p className="text-white text-sm font-medium">
-                        {new Date(task.createdAt).toLocaleDateString()} {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(task.created_at).toLocaleDateString()} {new Date(task.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-primary-400 mb-1">Estimated Time</p>
-                      <p className="text-white text-sm font-medium">{task.estimatedTime}</p>
+                      <p className="text-white text-sm font-medium">{task.estimated_time}</p>
                     </div>
-                    {task.actualTime && (
+                    {task.actual_time && (
                       <div>
                         <p className="text-xs text-primary-400 mb-1">Actual Time</p>
-                        <p className="text-green-400 text-sm font-medium">{task.actualTime}</p>
+                        <p className="text-green-400 text-sm font-medium">{task.actual_time}</p>
                       </div>
                     )}
-                    {task.completedAt && (
+                    {task.completed_at && (
                       <div>
                         <p className="text-xs text-primary-400 mb-1">Completed</p>
                         <p className="text-white text-sm font-medium">
-                          {new Date(task.completedAt).toLocaleDateString()}
+                          {new Date(task.completed_at).toLocaleDateString()}
                         </p>
                       </div>
                     )}
                   </div>
 
                   {/* Blocked Reason */}
-                  {task.blockedReason && (
+                  {task.blocked_reason && (
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-3">
                       <p className="text-xs text-red-300 font-semibold mb-1">Blocked Reason</p>
-                      <p className="text-red-200 text-sm">{task.blockedReason}</p>
+                      <p className="text-red-200 text-sm">{task.blocked_reason}</p>
                     </div>
                   )}
 
@@ -385,7 +409,7 @@ export default function TaskAssignmentsPage() {
         <h3 className="text-lg font-bold text-white mb-4">Agent Workload Summary</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {['Stu', 'Mel', 'Aly', 'Cody'].map(agent => {
-            const agentTasks = tasks.filter(t => t.assignedAgent === agent)
+            const agentTasks = tasks.filter(t => t.assigned_agent === agent)
             const completed = agentTasks.filter(t => t.status === 'complete').length
             const inProgress = agentTasks.filter(t => t.status === 'in_progress').length
             
