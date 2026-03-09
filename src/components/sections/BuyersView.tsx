@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Mail, Phone, AlertCircle } from "lucide-react";
 import GoogleDriveDocuments from "@/components/GoogleDriveDocuments";
+import EmptyState from "@/components/ui/EmptyState";
+import Button from "@/components/ui/Button";
 
 interface ChecklistState {
   consultation: boolean;
@@ -40,24 +42,17 @@ export default function BuyersView({ initialBuyers }: BuyersViewProps) {
   const [buyers] = useState<Buyer[]>(initialBuyers);
 
   return (
-    <div className="p-4 sm:p-8">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+    <div className="container-page space-section">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">
-            Buyers (A-Hot 1-3 Months)
-          </h1>
-          <p className="text-primary-300 text-sm sm:text-base">
-            Active buyers ready to purchase in the next 1-3 months
-          </p>
+          <h1>Buyers (A-Hot 1-3 Months)</h1>
+          <p className="text-primary-300 mt-2">Active buyers ready to purchase in the next 1-3 months</p>
         </div>
-        <button className="flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg font-medium transition whitespace-nowrap">
-          <Plus size={20} />
-          Add Buyer
-        </button>
+        <Button variant="primary" icon={<Plus size={16} />}>Add Buyer</Button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatBox label="Total Active" value={buyers.length} />
         <StatBox
           label="High Priority"
@@ -70,13 +65,16 @@ export default function BuyersView({ initialBuyers }: BuyersViewProps) {
 
       {/* Buyers Grid */}
       {buyers.length === 0 ? (
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-8 text-center">
-          <AlertCircle size={32} className="mx-auto mb-4 text-primary-400" />
-          <p className="text-primary-300 mb-4">No hot buyers yet</p>
-          <p className="text-primary-400 text-sm">
-            Buyers from Follow Up Boss (stage: A-Hot 1-3 Months) will appear here
-          </p>
-        </div>
+        <EmptyState
+          icon={AlertCircle}
+          title="No Hot Buyers Yet"
+          description="Buyers from Follow Up Boss (stage: A-Hot 1-3 Months) will appear here"
+          action={{
+            label: "Add Buyer",
+            onClick: () => console.log("Add buyer clicked")
+          }}
+          variant="info"
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {buyers.map((buyer) => (
